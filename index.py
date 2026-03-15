@@ -8,12 +8,11 @@ NAVER_CLIENT_ID = os.environ.get('NAVER_CLIENT_ID')
 NAVER_CLIENT_SECRET = os.environ.get('NAVER_CLIENT_SECRET')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 MAIL_API_URL = os.environ.get('MAIL_API_URL')
-RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL') # 추가된 부분
+RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
-# Gemini 설정 (최신 모델명 gemini-1.5-flash 권장)
+# 2. Gemini 설정 (최신 모델명 사용)
 genai.configure(api_key=GEMINI_API_KEY)
-# 'gemini-pro' 대신 'gemini-1.5-flash'를 사용하면 속도도 빠르고 에러가 없습니다.
-model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 def get_naver_news(query):
     url = "https://openapi.naver.com/v1/search/news.json"
@@ -21,11 +20,12 @@ def get_naver_news(query):
         "X-Naver-Client-Id": NAVER_CLIENT_ID,
         "X-Naver-Client-Secret": NAVER_CLIENT_SECRET
     }
+    # 최신 뉴스 위주로 검사하기 위해 sort="date", display를 넉넉히 50으로 설정
     params = {
         "query": query,
-        "display": 30,
+        "display": 50,
         "start": 1,
-        "sort": "sim"
+        "sort": "date"
     }
     response = requests.get(url, headers=headers, params=params)
     if response.status_code == 200:
@@ -36,24 +36,40 @@ def collect_all_news():
     queries = ["은행 +AI", "은행 +디지털", "은행 +신상품", "은행 +IT"]
     all_items = []
     seen_urls = set()
+    
+    # 한국 시간(KST) 기준 현재 시간과 24시간 전 시간 설정
+    kst = timezone(timedelta(hours=9))
+    now = datetime.now(kst)
+    one_day_ago = now - timedelta(days=1)
 
     for q in queries:
         news_items = get_naver_news(q)
         for item in news_items:
-            if item['link'] not in seen_urls:
+            # 네이버 pubDate 파싱 (예: Sun, 15 Mar 2026 21:00:00 +0900)
+            pub_date_str = item.get('pubDate')
+            try:
+                pub_date = datetime.strptime(pub_date_str, '%a, %d %b %Y %H:%M:%S +0900')
+                pub_date = pub_date.replace(tzinfo=kst)
+            except:
+                continue
+
+            # 24시간 이내 기사이면서 중복되지 않은 기사만 수집
+            if pub_date >= one_day_ago and item['link'] not in seen_urls:
                 all_items.append(item)
                 seen_urls.add(item['link'])
+                
     return all_items
 
 def get_gemini_insight(news_list):
     if not news_list:
-        return "분석할 뉴스 데이터가 없습니다."
+        return "<p>최근 24시간 이내에 분석할 새로운 뉴스 데이터가 없습니다.</p>"
 
     news_context = ""
     for i, item in enumerate(news_list):
-        title = item['title']
-        desc = item['description']
-        news_context += f"[{i+1}] 제목: {title}\n요약: {desc}\n링크: {item['link']}\n\n"
+        # HTML 태그 제거 및 텍스트 정리
+        title = item['title'].replace('<b>', '').replace('</b>', '')
+        desc = item['description'] # 원문 유지를 위해 replace 최소화
+        news_context += f"[{i+1}] 기사제목: {title}\n원문내용: {desc}\n출처링크: {item['link']}\n\n"
 
     prompt = f"""
     당신은 금융기관 경영진에게 보고하는 '금융 IT 전략 분석가'입니다. 
@@ -83,45 +99,49 @@ def get_gemini_insight(news_list):
     3. 전문적인 어조(예: ~로 분석됨, ~이 요망됨)를 유지하고, <h3> 태그로 섹션을 명확히 구분하여 가독성을 극대화하세요.
     """
     
-    # 모델 호출 부분
     response = model.generate_content(prompt)
     return response.text
 
-def send_insight_mail(insight_html, news_list): # 1. news_list 인자 추가
+def send_insight_mail(insight_html, news_list):
     """최종 HTML 조립 및 발송"""
+    # 하단 참고 리스트 생성
     list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
-    for item in news_list: # 2. 반복할 대상(news_list) 지정
-        # HTML 태그 제거 및 제목 정리
+    for item in news_list:
         title = item['title'].replace('<b>', '').replace('</b>', '')
         list_html += f"<li><a href='{item['link']}'>{title}</a></li>"
     list_html += "</ul>"
 
     full_html = f"""
-    <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
-        <div style="padding: 20px; border-radius: 10px;"> {insight_html}
+    <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #2c3e50;">🏦 금융 IT & 은행 신상품 데일리 인사이트</h2>
+        <p style="color: #7f8c8d;">{datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d %H:%M')} 기준</p>
+        <hr>
+        <div style="padding: 10px; border-radius: 10px;">
+            {insight_html}
         </div>
         <br>
+        <hr>
         {list_html}
     </div>
     """
 
     payload = {
-        "to": [RECIPIENT_EMAIL], # 하드코딩된 메일 주소를 변수로 교체
-        "subject": f"[{datetime.now(timezone(timedelta(hours=9))).date()}] 은행 IT & 신상품 데일리 인사이트",
+        "to": [RECIPIENT_EMAIL],
+        "subject": f"[{datetime.now(timezone(timedelta(hours=9))).strftime('%m-%d')}] 금융 IT 경쟁사 동향 및 전략 브리핑",
         "html": full_html
     }
 
     try:
         response = requests.post(MAIL_API_URL, json=payload)
         if response.status_code in [200, 201]:
-            print("메일 발송 성공!")
+            print(f"메일 발송 성공! (수집 기사: {len(news_list)}건)")
         else:
-            print(f"실패: 메일 API 응답 코드 {response.status_code}")
+            print(f"실패: API 응답 코드 {response.status_code}")
     except Exception as e:
-        print(f"메일 발송 중 오류 발생: {e}")
+        print(f"오류 발생: {e}")
 
 if __name__ == "__main__":
     news_items = collect_all_news()
-    print(f"수집된 뉴스: {len(news_items)}건")
+    print(f"최근 24시간 이내 수집된 기사: {len(news_items)}건")
     insights = get_gemini_insight(news_items)
     send_insight_mail(insights, news_items)
