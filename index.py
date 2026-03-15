@@ -86,19 +86,19 @@ def get_gemini_insight(news_list):
     response = model.generate_content(prompt)
     return response.text
 
-def send_insight_mail(insight_html, ):
+def send_insight_mail(insight_html, news_list): # 1. news_list 인자 추가
     """최종 HTML 조립 및 발송"""
     list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
-    for item in :
-        title = item['title']
+    for item in news_list: # 2. 반복할 대상(news_list) 지정
+        # HTML 태그 제거 및 제목 정리
+        title = item['title'].replace('<b>', '').replace('</b>', '')
         list_html += f"<li><a href='{item['link']}'>{title}</a></li>"
     list_html += "</ul>"
 
     full_html = f"""
     <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
         <hr>
-        <div padding: 20px; border-radius: 10px;">
-            {insight_html}
+        <div style="padding: 20px; border-radius: 10px;"> {insight_html}
         </div>
         <br>
         {list_html}
