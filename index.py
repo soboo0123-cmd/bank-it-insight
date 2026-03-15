@@ -64,11 +64,12 @@ def get_gemini_insight(news_list):
     
     [작성 가이드라인 - 아래 순서를 반드시 엄수할 것]
     
-    1. <종합 브리핑 (Executive Summary)>:
-       - 최상단에 배치하세요. 오늘 수집된 뉴스들을 종합하여 현재의 거시적 흐름과 '전략적 시사점'을 3~4문장으로 서술하세요.
-       - 배경색이 연한 회색(#f8f9fa)이고 테두리가 있는 <div> 태그 안에 넣어 시각적으로 강조하세요.
-       - **[중요]** 링크는 문단 끝에 몰아넣지 마세요. 각 문장의 근거가 되는 원문 링크를 **해당 문장이 끝나는 마침표 바로 앞에** <a href='URL'>🔗</a> 형태로 삽입하세요. 
-         (예: ...전환을 가속화하고 있습니다 <a href='URL'>🔗</a>. 또한 ...를 추진 중입니다 <a href='URL'>🔗</a>.)
+    1. <종합 브리핑>:
+       - 최상단에 배치하고, 배경색이 연한 회색(#f8f9fa)인 <div> 태그로 강조하세요.
+       - **[핵심 지침]** 거시적인 표현(예: 금융권은~, 가속화하고 있다~)을 지양하고, **구체적인 은행명과 사업 명칭을 직접 언급**하며 서술하세요.
+       - 오늘 뉴스 중 가장 중요한 **경쟁사들의 실질적인 액션(신상품 출시, 조직 개편, 파트너십 등)**을 중심으로 3~4문장의 전략적 통찰을 제공하세요.
+       - (예: "단순히 기술 협력을 합니다" (X) -> "하나금융이 SC그룹과 디지털 자산 동맹을 맺고 글로벌 시장 선점에 나섰습니다" (O))
+       - **[링크 배치]** 각 문장의 근거가 되는 원문 링크를 문장 끝 마침표 바로 앞에 <a href='URL'>🔗</a> 형태로 삽입하세요.
 
     2. <카테고리별 주요 기사 분류>:
        - 아래 4가지 카테고리로 기사를 분류하여 배치하세요:
@@ -85,20 +86,18 @@ def get_gemini_insight(news_list):
     response = model.generate_content(prompt)
     return response.text
 
-def send_insight_mail(insight_html, news_list):
+def send_insight_mail(insight_html, ):
     """최종 HTML 조립 및 발송"""
     list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
-    for item in news_list:
+    for item in :
         title = item['title']
         list_html += f"<li><a href='{item['link']}'>{title}</a></li>"
     list_html += "</ul>"
 
     full_html = f"""
     <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
-        <h2 style="color: #2c3e50;">🏦 은행 IT & 신상품 데일리 인사이트</h2>
-        <p>{datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d')}</p>
         <hr>
-        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
+        <div padding: 20px; border-radius: 10px;">
             {insight_html}
         </div>
         <br>
