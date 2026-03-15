@@ -33,4 +33,5 @@ jobs:
         NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         MAIL_API_URL: ${{ secrets.MAIL_API_URL }}
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
       run: python index.py
