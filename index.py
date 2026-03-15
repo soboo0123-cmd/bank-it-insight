@@ -99,7 +99,7 @@ def send_insight_mail(insight_html, news_list): # 1. news_list 인자 추가
     list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
     for item in news_list: # 2. 반복할 대상(news_list) 지정
         # HTML 태그 제거 및 제목 정리
-        title = item['title'].replace('<b>', '').replace('</b>', '')
+        title = item['title']
         list_html += f"<li><a href='{item['link']}'>{title}</a></li>"
     list_html += "</ul>"
 
