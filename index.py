@@ -131,4 +131,5 @@ if __name__ == "__main__":
     news_items = collect_all_news()
     print(f"수집된 뉴스: {len(news_items)}건")
     insights = get_gemini_insight(news_items)
+    insights = insights.replace('```html', '').replace('```', '').strip()
     send_insight_mail(insights, news_items)
