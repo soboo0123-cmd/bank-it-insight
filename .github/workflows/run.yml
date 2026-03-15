@@ -2,25 +2,22 @@ name: Financial IT Insight Alimi
 
 on:
   schedule:
-    # 한국 시간 아침 8시 = UTC 기준 전날 23시
     - cron: '0 23 * * *'
-  workflow_dispatch: # 수동 실행 버튼 활성화
+  workflow_dispatch:
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
-
-    # Node.js 24 실행을 강제하기 위한 환경 변수 설정
+    
+    # 여기에 환경 변수를 추가하여 모든 스텝에 적용
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     steps:
     - name: Checkout repository
-      # v3에서 v4로 업데이트
       uses: actions/checkout@v4
 
     - name: Set up Python
-      # v4에서 v5로 업데이트
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
