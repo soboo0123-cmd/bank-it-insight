@@ -51,8 +51,8 @@ def get_gemini_insight(news_list):
 
     news_context = ""
     for i, item in enumerate(news_list):
-        title = item['title'].replace('<b>', '').replace('</b>', '')
-        desc = item['description'].replace('<b>', '').replace('</b>', '')
+        title = item['title']
+        desc = item['description']
         news_context += f"[{i+1}] 제목: {title}\n요약: {desc}\n링크: {item['link']}\n\n"
 
     prompt = f"""
@@ -67,18 +67,18 @@ def get_gemini_insight(news_list):
     1. <종합 브리핑 (Executive Summary)>:
        - 최상단에 배치하세요. 오늘 수집된 뉴스들을 종합하여 현재의 거시적 흐름과 '전략적 시사점'을 3~4문장으로 서술하세요.
        - 배경색이 연한 회색(#f8f9fa)이고 테두리가 있는 <div> 태그 안에 넣어 경영진이 가장 먼저 주목하게 하세요.
+       - 근거가 되는 원문 링크를 문장 끝에 <a href='URL'>🔗</a> 형태로 삽입하세요.
     
     2. <카테고리별 주요 기사 분류>:
        - 아래 4가지 카테고리로 기사를 분류하여 배치하세요:
          ① 경영전략 ② 신상품 ③ IT(기술/보안) ④ 기타
        - 기사가 없는 카테고리는 "해당 분야 주요 기사 없음"이라고 표시하세요.
-       - 각 기사는 <ul>과 <li>를 사용하며, [기사 제목]과 [기사 요약(description)]을 함께 표시하세요.
-       - 기사 제목 뒤에는 반드시 해당 원문 링크를 <a href='URL'>🔗</a> 형태로 삽입하세요.
-    
-    3. <핵심 트렌드 분석>:
-       - 수집된 데이터 중 가장 비중이 크거나 중요한 트렌드 2~3개를 선정하여 [현황]과 [전략적 시사점]으로 나누어 전문적으로 분석하세요.
+       - 카테고리별로 각 기사를 관통하는 핵심 트렌드를 제시하세요 
+       - 각 기사는 <ul>과 <li>를 사용하며, [기사 제목]과 [기사내용desc]을 함께 표시하세요.
+       - 기사 제목에 원문 링크를 삽입하세요.
     
     4. 전문적인 어조(예: ~로 분석됨, ~이 요망됨)를 유지하고, <h3> 태그로 섹션을 명확히 구분하여 가독성을 극대화하세요.
+       - 특히 네이버에서 전달받은 <br>태그는 기사 추출의 근거가 되므로 꼭 유지해 주세요
     """
     
     # 모델 호출 부분
@@ -89,13 +89,13 @@ def send_insight_mail(insight_html, news_list):
     """최종 HTML 조립 및 발송"""
     list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
     for item in news_list:
-        title = item['title'].replace('<b>', '').replace('</b>', '')
+        title = item['title']
         list_html += f"<li><a href='{item['link']}'>{title}</a></li>"
     list_html += "</ul>"
 
     full_html = f"""
     <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
-        <h2 style="color: #2c3e50;">🏦 금융 IT & 은행 신상품 데일리 인사이트</h2>
+        <h2 style="color: #2c3e50;">🏦 은행 IT & 신상품 데일리 인사이트</h2>
         <p>{datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d')}</p>
         <hr>
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
