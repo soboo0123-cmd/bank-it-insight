@@ -8,6 +8,7 @@ NAVER_CLIENT_ID = os.environ.get('NAVER_CLIENT_ID')
 NAVER_CLIENT_SECRET = os.environ.get('NAVER_CLIENT_SECRET')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 MAIL_API_URL = os.environ.get('MAIL_API_URL')
+RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL') # 추가된 부분
 
 # Gemini 설정 (최신 모델명 gemini-1.5-flash 권장)
 genai.configure(api_key=GEMINI_API_KEY)
@@ -72,6 +73,7 @@ def get_gemini_insight(news_list):
     return response.text
 
 def send_insight_mail(insight_html, news_list):
+    """최종 HTML 조립 및 발송"""
     list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
     for item in news_list:
         title = item['title'].replace('<b>', '').replace('</b>', '')
@@ -92,8 +94,8 @@ def send_insight_mail(insight_html, news_list):
     """
 
     payload = {
-        "to": ["soboo@daum.net"],
-        "subject": f"[{datetime.now(timezone(timedelta(hours=9))).date()}] 은행 IT 인사이트",
+        "to": [RECIPIENT_EMAIL], # 하드코딩된 메일 주소를 변수로 교체
+        "subject": f"[{datetime.now(timezone(timedelta(hours=9))).date()}] 은행 IT & 신상품 데일리 인사이트",
         "html": full_html
     }
 
@@ -102,9 +104,9 @@ def send_insight_mail(insight_html, news_list):
         if response.status_code in [200, 201]:
             print("메일 발송 성공!")
         else:
-            print(f"메일 발송 실패: {response.status_code}")
+            print(f"실패: 메일 API 응답 코드 {response.status_code}")
     except Exception as e:
-        print(f"오류 발생: {e}")
+        print(f"메일 발송 중 오류 발생: {e}")
 
 if __name__ == "__main__":
     news_items = collect_all_news()
