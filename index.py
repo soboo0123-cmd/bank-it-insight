@@ -97,7 +97,6 @@ def send_insight_mail(insight_html, news_list): # 1. news_list 인자 추가
 
     full_html = f"""
     <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
-        <hr>
         <div style="padding: 20px; border-radius: 10px;"> {insight_html}
         </div>
         <br>
