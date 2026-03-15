@@ -10,12 +10,18 @@ jobs:
   run-script:
     runs-on: ubuntu-latest
 
+    # Node.js 24 실행을 강제하기 위한 환경 변수 설정
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      # v3에서 v4로 업데이트
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      # v4에서 v5로 업데이트
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
