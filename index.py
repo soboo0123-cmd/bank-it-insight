@@ -127,5 +127,7 @@ if __name__ == "__main__":
     all_news, ai_news, logs = collect_news_with_log()
     print(f"전체 검색: {len(all_news)}건 / AI 전달: {len(ai_news)}건")
     
+    insights = get_gemini_insight(ai_news)
+    insights = insights.replace('```html', '').replace('```', '').strip()
     
-    send_combined_mail(ai_news, all_news, logs)
+    send_combined_mail(insights, ai_news, all_news, logs)
