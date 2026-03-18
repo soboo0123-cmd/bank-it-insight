@@ -123,7 +123,7 @@ def send_insight_mail(insight_html, news_list):
     print(f"[DEBUG] HTML 길이: {len(full_html)}")
 
     payload = {
-        "to": [RECIPIENT_EMAIL],
+        "to": [email.strip() for email in RECIPIENT_EMAIL.split(",")],
         "subject": f"[{datetime.now(timezone(timedelta(hours=9))).date()}] 은행 IT & 신상품 데일리 인사이트",
         "html": full_html
     }
