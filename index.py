@@ -12,7 +12,8 @@ RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
 # Gemini 설정
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash') # 안정적인 flash 모델 권장
+model = genai.GenerativeModel('gemini-3.1-pro-preview')
+# model = genai.GenerativeModel('gemini-2.5-flash') # 안정적인 flash 모델 권장
 
 def get_naver_news(query):
     url = "https://openapi.naver.com/v1/search/news.json"
