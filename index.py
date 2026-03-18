@@ -1,6 +1,6 @@
 import os
 import requests
-import google.generativeai as genai
+from google import genai # import 방식 변경
 from datetime import datetime, timezone, timedelta
 
 # 1. 환경 변수 설정
@@ -11,8 +11,8 @@ MAIL_API_URL = os.environ.get('MAIL_API_URL')
 RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
 # Gemini 설정
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-3.1-pro-preview')
+client = genai.Client(api_key=GEMINI_API_KEY)
+# model = genai.GenerativeModel('gemini-3.1-pro-preview')
 # model = genai.GenerativeModel('gemini-2.5-flash') # 안정적인 flash 모델 권장
 
 def get_naver_news(query):
@@ -129,8 +129,15 @@ def get_gemini_insight(news_list):
     """
     
     # 모델 호출 부분
-    response = model.generate_content(prompt)
+    # response = model.generate_content(prompt)
+    # return response.text
+
+    response = client.models.generate_content(
+        model='gemini-3.1-pro-preview', 
+        contents=prompt
+    )
     return response.text
+
 
 def send_insight_mail(insight_html, news_list):
     """최종 HTML 조립 및 발송"""
