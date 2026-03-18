@@ -22,7 +22,7 @@ def get_naver_news(query):
     }
     params = {
         "query": query,
-        "display": 50,
+        "display": 100,
         "start": 1,
         "sort": "date"
     }
@@ -32,7 +32,7 @@ def get_naver_news(query):
     return []
 
 def collect_all_news():
-    # 1. 검색어 설정
+    # 1. 검색어 설정 (은행 키워드 강화를 위해 + 기호 포함)
     queries = ["은행 +AI", "은행 +IT", "은행 +신상품", "은행 +디지털"]
     all_items = []
     seen_urls = set()
@@ -41,7 +41,7 @@ def collect_all_news():
     kst = timezone(timedelta(hours=9))
     limit_time = datetime.now(kst) - timedelta(days=1)
     
-    # 3. 허용할 언론사 도메인 리스트 (요청하신 리스트 기반 주요 도메인)
+    # 3. 허용할 언론사 도메인 리스트
     allowed_domains = [
         # 일간지/방송/통신
         "khan.co.kr", "kmib.co.kr", "naeil.com", "donga.com", "m-i.kr", "munhwa.com", "seoul.co.kr", 
@@ -60,26 +60,30 @@ def collect_all_news():
         news_items = get_naver_news(q)
         for item in news_items:
             link = item.get('link', '')
-            org_link = item.get('originallink', '') # 언론사 원본 주소 활용
+            org_link = item.get('originallink', '')
             
+            # [필터 1] URL이 동일한 것은 제외 (중복 제거)
             if not link or link in seen_urls:
                 continue
             
-            # [조건 1] 허용할 언론사 URL(도메인)이 포함되어 있는지 확인
-            # 기사의 원본 링크(org_link)나 네이버 링크(link)에 허용 도메인이 있는지 대조
-            is_allowed_url = any(domain in org_link for domain in allowed_domains) or \
-                             any(domain in link for domain in allowed_domains) or \
-                             ("n.news.naver.com" in link) # 네이버 뉴스 플랫폼은 기본 허용
-            
-            # [조건 2] 시간 체크 (24시간 이내)
+            # [필터 2] 1일(24시간) 초과 제외
             try:
+                # 네이버 pubDate 포맷: 'Mon, 26 Sep 2016 07:50:00 +0900'
                 pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S +0900').replace(tzinfo=kst)
                 is_recent = pub_date >= limit_time
             except:
                 is_recent = False
+            
+            if not is_recent:
+                continue
 
-            # 최종 필터링: (허용 언론사) AND (최신성)
-            if is_allowed_url and is_recent:
+            # [필터 3] allowed_domains에 있는 기사들만 남기기
+            # 원본 링크(org_link)나 변환 링크(link)에 허용 도메인이 포함되어 있는지 확인
+            is_allowed_url = any(domain in org_link for domain in allowed_domains) or \
+                             any(domain in link for domain in allowed_domains) or \
+                             ("n.news.naver.com" in link) # 네이버 뉴스 플랫폼 링크 허용
+            
+            if is_allowed_url:
                 all_items.append(item)
                 seen_urls.add(link)
                 
