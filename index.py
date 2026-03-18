@@ -36,12 +36,10 @@ def extract_press_id(url):
     return match.group(1) if match else None
 
 def collect_news_with_log():
-    # 1. 쿼리 수정: '+' 연산자 제거 (검색 결과 극대화)
-    queries = ["은행 AI", "은행 IT", "은행 신상품", "은행 디지털"]
-    
-    all_searched = [] # 검색된 모든 기사
-    filtered_for_ai = [] # AI 분석에 넘길 기사
-    execution_log = [] # 필터링 로그
+    queries = ["은행 AI", "은행 IT", "은행 신상품", "은행 디지털"] # '+' 제거
+    all_searched = []
+    filtered_for_ai = []
+    execution_log = []
     
     seen_urls = set()
     kst = timezone(timedelta(hours=9))
@@ -55,31 +53,29 @@ def collect_news_with_log():
             
             if link in seen_urls: continue
             seen_urls.add(link)
-            
-            # 모든 검색 결과에 추가
             all_searched.append(item)
             
-            # 필터링 로직 및 로그 기록
-            is_naver_news = "n.news.naver.com" in link
+            # [수정] 필터링 조건 분석용 로그
             press_id = extract_press_id(link)
-            is_whitelisted = press_id in WHITELIST_PRESS_IDS if press_id else False
+            is_naver = "n.news.naver.com" in link
+            is_white = press_id in WHITELIST_PRESS_IDS if press_id else False
             
             try:
                 pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S +0900').replace(tzinfo=kst)
                 is_recent = pub_date >= limit_time
-            except:
-                is_recent = False
+            except: is_recent = False
 
-            # 필터링 통과 여부 결정
-            if is_naver_news and is_whitelisted and is_recent:
-                filtered_for_ai.append(item)
-                execution_log.append(f"✅ [통과] {title} (ID: {press_id})")
+            # [핵심 변경] 일단 '최근 기사'이기만 하면 AI에게 넘겨보거나, 로그에 상세히 기록
+            if is_recent:
+                if is_naver and is_white:
+                    filtered_for_ai.append(item)
+                    execution_log.append(f"✅ [통과] {title}")
+                else:
+                    # 왜 통과 못했는지 이유를 메일 로그로 확인
+                    reason = f"네이버여부:{is_naver}, 화이트리스트여부:{is_white}(ID:{press_id})"
+                    execution_log.append(f"❌ [제외] {title} | 사유: {reason}")
             else:
-                reason = []
-                if not is_naver_news: reason.append("네이버뉴스 아님")
-                if not is_whitelisted: reason.append(f"화이트리스트 미포함(ID:{press_id})")
-                if not is_recent: reason.append("24시간 초과")
-                execution_log.append(f"❌ [제외] {title} | 사유: {', '.join(reason)}")
+                execution_log.append(f"⏰ [시간초과] {title}")
 
     return all_searched, filtered_for_ai, execution_log
 
@@ -131,7 +127,5 @@ if __name__ == "__main__":
     all_news, ai_news, logs = collect_news_with_log()
     print(f"전체 검색: {len(all_news)}건 / AI 전달: {len(ai_news)}건")
     
-    insights = get_gemini_insight(ai_news)
-    insights = insights.replace('```html', '').replace('```', '').strip()
     
-    send_combined_mail(insights, ai_news, all_news, logs)
+    send_combined_mail(ai_news, all_news, logs)
