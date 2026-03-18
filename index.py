@@ -140,21 +140,16 @@ def get_gemini_insight(news_list):
 
 
 def send_insight_mail(insight_html, news_list):
-    """최종 HTML 조립 및 발송"""
-    list_html = "<h3>참고 뉴스 원문 리스트</h3><ul>"
-    for item in news_list:
-        title = item['title'].replace('<b>', '').replace('</b>', '')
-        list_html += f"<li><a href='{item['link']}'>{title}</a></li>"
-    list_html += "</ul>"
-
+    """최종 HTML 조립 및 발송 (원문 리스트 삭제 버전)"""
+    
+    # [변경] 기존의 list_html 생성 로직을 삭제했습니다.
+    
     full_html = f"""
     <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
         <div style="padding: 20px;">
             {insight_html}
         </div>
-        <hr>
-        {list_html}
-    </div>
+        </div>
     """
 
     payload = {
@@ -166,39 +161,17 @@ def send_insight_mail(insight_html, news_list):
     try:
         response = requests.post(MAIL_API_URL, json=payload)
         if response.status_code in [200, 201]:
-            print(f"메일 발송 성공! (수집된 뉴스: {len(news_list)}건)")
+            print(f"메일 발송 성공! (분석 대상 뉴스: {len(news_list)}건)")
         else:
             print(f"실패: 코드 {response.status_code}")
+            # 에러 발생 시 로그 확인용 (선택 사항)
+            # print(f"응답 내용: {response.text}") 
     except Exception as e:
         print(f"오류 발생: {e}")
 
 if __name__ == "__main__":
-    # 1. 뉴스 수집 및 필터링
     news_items = collect_all_news()
-    
-    # [로그 출력 추가]
-    print(f"\n✅ 필터링 후 최종 수집: {len(news_items)}건")
-    print("-" * 50)
-    for i, item in enumerate(news_items):
-        # 제목에서 <b> 태그 제거 후 출력
-        clean_title = item.get('title', '').replace('<b>', '').replace('</b>', '')
-        # 도메인 확인을 위해 originallink도 같이 출력하면 좋습니다
-        org_link = item.get('originallink', '직링크 없음')
-        print(f"[{i+1}] {clean_title} | {org_link}")
-    print("-" * 50)
-
-    # 2. AI 분석용 상위 50개 제한
-    target_news = news_items[:50] 
-    
-    if target_news:
-        insights = get_gemini_insight(target_news)
-        insights = insights.replace('```html', '').replace('```', '').strip()
-        send_insight_mail(insights, target_news)
-
-
-# if __name__ == "__main__":
-#     news_items = collect_all_news()
-#     print(f"필터링 후 최종 수집: {len(news_items)}건")
-#     insights = get_gemini_insight(news_items)
-#     insights = insights.replace('```html', '').replace('```', '').strip()
-#     send_insight_mail(insights, news_items)
+    print(f"필터링 후 최종 수집: {len(news_items)}건")
+    insights = get_gemini_insight(news_items)
+    insights = insights.replace('```html', '').replace('```', '').strip()
+    send_insight_mail(insights, news_items)
