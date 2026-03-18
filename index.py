@@ -84,7 +84,8 @@ def collect_all_news():
 
 def get_gemini_insight(news_list):
     if not news_list:
-        return "<div>뉴스 없음</div>"
+        return "<div style='padding:20px; background:#f0f7ff; border-radius:10px;'><h2>🤖 AI 전략 인사이트</h2>최근 24시간 이내의 조건을 만족하는 필터링된 뉴스가 없습니다.</div>"
+
 
     news_context = ""
     for i, item in enumerate(news_list):
@@ -102,7 +103,7 @@ def get_gemini_insight(news_list):
     [작성 가이드라인 - 아래 순서를 반드시 엄수할 것]
     
     1. <종합 브리핑>:
-       - 최상단에 배치하고, 배경색이 연한 회색(#f8f9fa)인 <div> 태그로 강조하세요.
+       - 최상단에 배치하고, 배경색이 연한 회색(#f8f9fa)인 <div> 태그로 강조하세요. '<div style='padding:10px; background:#f8f9fa; border-radius:10px;'>'
        - **[핵심 지침]** 거시적인 표현(예: 금융권은~, 가속화하고 있다~)을 지양하고, **구체적인 은행명과 사업 명칭을 직접 언급**하며 서술하세요.
        - 오늘 뉴스 중 가장 중요한 **경쟁사들의 실질적인 액션(신상품 출시, 조직 개편, 파트너십 등)**을 중심으로 3~4문장의 전략적 통찰을 제공하세요.
        - (예: "단순히 기술 협력을 합니다" (X) -> "하나금융이 SC그룹과 디지털 자산 동맹을 맺고 글로벌 시장 선점에 나섰습니다" (O))
