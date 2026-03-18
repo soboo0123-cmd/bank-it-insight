@@ -87,7 +87,7 @@ def collect_all_news():
             if is_allowed_url:
                 all_items.append(item)
                 seen_urls.add(link)
-                
+
     return all_items
 
 def get_gemini_insight(news_list):
@@ -173,8 +173,32 @@ def send_insight_mail(insight_html, news_list):
         print(f"오류 발생: {e}")
 
 if __name__ == "__main__":
+    # 1. 뉴스 수집 및 필터링
     news_items = collect_all_news()
-    print(f"필터링 후 최종 수집: {len(news_items)}건")
-    insights = get_gemini_insight(news_items)
-    insights = insights.replace('```html', '').replace('```', '').strip()
-    send_insight_mail(insights, news_items)
+    
+    # [로그 출력 추가]
+    print(f"\n✅ 필터링 후 최종 수집: {len(news_items)}건")
+    print("-" * 50)
+    for i, item in enumerate(news_items):
+        # 제목에서 <b> 태그 제거 후 출력
+        clean_title = item.get('title', '').replace('<b>', '').replace('</b>', '')
+        # 도메인 확인을 위해 originallink도 같이 출력하면 좋습니다
+        org_link = item.get('originallink', '직링크 없음')
+        print(f"[{i+1}] {clean_title} | {org_link}")
+    print("-" * 50)
+
+    # 2. AI 분석용 상위 50개 제한
+    target_news = news_items[:50] 
+    
+    if target_news:
+        insights = get_gemini_insight(target_news)
+        insights = insights.replace('```html', '').replace('```', '').strip()
+        send_insight_mail(insights, target_news)
+
+
+# if __name__ == "__main__":
+#     news_items = collect_all_news()
+#     print(f"필터링 후 최종 수집: {len(news_items)}건")
+#     insights = get_gemini_insight(news_items)
+#     insights = insights.replace('```html', '').replace('```', '').strip()
+#     send_insight_mail(insights, news_items)
