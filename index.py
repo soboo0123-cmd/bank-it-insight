@@ -32,46 +32,54 @@ def get_naver_news(query):
     return []
 
 def collect_all_news():
-    # 1. 검색어 설정 및 확장 (queries)
-    queries = ["은행 +AI", "은행 +IT", "은행 +신상품", "은행 +디지털"]
+    # 1. 검색어 설정
+    queries = ["은행 AI", "은행 IT", "은행 신상품", "은행 디지털"]
     all_items = []
     seen_urls = set()
 
-    # 3. 시간 체크 (is_recent)를 위한 기준 설정 (현재로부터 24시간 전)
+    # 2. 시간 기준 설정 (현재로부터 24시간 전)
     kst = timezone(timedelta(hours=9))
     limit_time = datetime.now(kst) - timedelta(days=1)
     
-    # 2-②. 직링크 기사 키워드 검사 (has_bank_keyword)를 위한 리스트
-    bank_keywords = ["은행", "금융", "하나", "신한", "국민", "우리", "농협", "기업은행", "카카오뱅크", "토스"]
+    # 3. 허용할 언론사 도메인 리스트 (요청하신 리스트 기반 주요 도메인)
+    allowed_domains = [
+        # 일간지/방송/통신
+        "khan.co.kr", "kmib.co.kr", "naeil.com", "donga.com", "m-i.kr", "munhwa.com", "seoul.co.kr", 
+        "segye.com", "shinailbo.co.kr", "asiatoday.co.kr", "jeonmae.co.kr", "chosun.com", "joongang.co.kr", 
+        "newscj.com", "hani.co.kr", "hankookilbo.com", "yna.co.kr", "news1.kr", "newsis.com", "kbs.co.kr", 
+        "imbc.com", "sbs.co.kr", "ytn.co.kr", "jtbc.co.kr", "mbn.co.kr", "tvchosun.com", "ichannela.com",
+        # 경제/IT/전문지
+        "mk.co.kr", "hankyung.com", "sedaily.com", "edaily.co.kr", "asiae.co.kr", "fnnews.com", "heraldcorp.com", 
+        "etnews.com", "dt.co.kr", "zdnet.co.kr", "mt.co.kr", "bizwatch.co.kr", "etoday.co.kr", "ddaily.co.kr", 
+        "itdaily.kr", "datanet.co.kr", "bloter.net", "joseilbo.com", "ajunews.com", "viva100.com", "lawissue.co.kr",
+        "ebn.co.kr", "dailyimpact.kr", "digitaltoday.co.kr", "byline.network", "betanews.net", "venturesquare.net",
+        "boannews.com", "bizhankook.com", "seoulfn.com", "itworld.co.kr", "ciokorea.com", "itbiznews.com"
+    ]
 
     for q in queries:
         news_items = get_naver_news(q)
         for item in news_items:
-            # 네이버 API는 link(변환링크)와 originallink(원본직링크) 두 가지를 줍니다.
             link = item.get('link', '')
-            org_link = item.get('originallink', '')
-            title = item.get('title', '').replace('<b>', '').replace('</b>', '')
+            org_link = item.get('originallink', '') # 언론사 원본 주소 활용
             
             if not link or link in seen_urls:
                 continue
             
-            # [조건 1] 네이버 뉴스 여부 (is_naver_news)
-            # 변환 링크(link)나 원본 링크(org_link) 중 하나라도 네이버 뉴스 도메인을 포함하면 True
-            is_naver_news = ("n.news.naver.com" in link) or ("n.news.naver.com" in org_link)
+            # [조건 1] 허용할 언론사 URL(도메인)이 포함되어 있는지 확인
+            # 기사의 원본 링크(org_link)나 네이버 링크(link)에 허용 도메인이 있는지 대조
+            is_allowed_url = any(domain in org_link for domain in allowed_domains) or \
+                             any(domain in link for domain in allowed_domains) or \
+                             ("n.news.naver.com" in link) # 네이버 뉴스 플랫폼은 기본 허용
             
-            # [조건 2] 직링크 기사 키워드 검사 (has_bank_keyword)
-            has_bank_keyword = any(kw in title for kw in bank_keywords)
-            
-            # [조건 3] 시간 체크 (is_recent)
+            # [조건 2] 시간 체크 (24시간 이내)
             try:
                 pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S +0900').replace(tzinfo=kst)
                 is_recent = pub_date >= limit_time
             except:
                 is_recent = False
 
-            # 필터링 로직: (1번 OR 2번) AND 3번
-            # 즉, (네이버 뉴스 플랫폼 기사이거나 제목에 은행 키워드가 있는 직링크 기사) 중에서 '최신' 것만 수집
-            if (is_naver_news or has_bank_keyword) and is_recent:
+            # 최종 필터링: (허용 언론사) AND (최신성)
+            if is_allowed_url and is_recent:
                 all_items.append(item)
                 seen_urls.add(link)
                 
