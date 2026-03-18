@@ -32,41 +32,45 @@ def get_naver_news(query):
     return []
 
 def collect_all_news():
-    # 검색어 최적화 (불필요한 '+' 제거하여 검색 결과 확장)
-    queries = ["은행 AI", "은행 IT", "은행 신상품", "은행 디지털"]
+    # 1. 검색어 설정 및 확장 (queries)
+    queries = ["은행 +AI", "은행 +IT", "은행 +신상품", "은행 +디지털"]
     all_items = []
     seen_urls = set()
 
-    # 기준 시간 설정 (현재로부터 24시간 전)
+    # 3. 시간 체크 (is_recent)를 위한 기준 설정 (현재로부터 24시간 전)
     kst = timezone(timedelta(hours=9))
     limit_time = datetime.now(kst) - timedelta(days=1)
     
-    # 핵심 은행 키워드 (직링크 기사 필터링용)
+    # 2-②. 직링크 기사 키워드 검사 (has_bank_keyword)를 위한 리스트
     bank_keywords = ["은행", "금융", "하나", "신한", "국민", "우리", "농협", "기업은행", "카카오뱅크", "토스"]
 
     for q in queries:
         news_items = get_naver_news(q)
         for item in news_items:
+            # 네이버 API는 link(변환링크)와 originallink(원본직링크) 두 가지를 줍니다.
             link = item.get('link', '')
+            org_link = item.get('originallink', '')
             title = item.get('title', '').replace('<b>', '').replace('</b>', '')
             
             if not link or link in seen_urls:
                 continue
             
-            # 1. 네이버 뉴스 서비스 기사인지 확인
-            is_naver_news = "n.news.naver.com" in link
+            # [조건 1] 네이버 뉴스 여부 (is_naver_news)
+            # 변환 링크(link)나 원본 링크(org_link) 중 하나라도 네이버 뉴스 도메인을 포함하면 True
+            is_naver_news = ("n.news.naver.com" in link) or ("n.news.naver.com" in org_link)
             
-            # 2. 직링크 기사일 경우 제목에 은행 키워드가 포함되었는지 확인
+            # [조건 2] 직링크 기사 키워드 검사 (has_bank_keyword)
             has_bank_keyword = any(kw in title for kw in bank_keywords)
             
-            # 3. 시간 체크
+            # [조건 3] 시간 체크 (is_recent)
             try:
                 pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S +0900').replace(tzinfo=kst)
                 is_recent = pub_date >= limit_time
             except:
                 is_recent = False
 
-            # 필터링 로직: (네이버 뉴스이거나 핵심 키워드 포함 기사) AND 최신 기사
+            # 필터링 로직: (1번 OR 2번) AND 3번
+            # 즉, (네이버 뉴스 플랫폼 기사이거나 제목에 은행 키워드가 있는 직링크 기사) 중에서 '최신' 것만 수집
             if (is_naver_news or has_bank_keyword) and is_recent:
                 all_items.append(item)
                 seen_urls.add(link)
