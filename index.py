@@ -1,8 +1,11 @@
 import os
 import requests
 import json
-from google import genai
 from datetime import datetime, timezone, timedelta
+import html
+import re
+from collections import defaultdict
+from google import genai
 
 # 1. 환경 변수 설정
 NAVER_CLIENT_ID = os.environ.get('NAVER_CLIENT_ID')
@@ -14,73 +17,138 @@ RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 # Gemini 설정
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+# ==========================================
+# 2. article.py 로직 이식 (상수 및 유틸리티 함수)
+# ==========================================
+ALLOWED_DOMAINS = [
+    "khan.co.kr", "kmib.co.kr", "naeil.com", "donga.com", "m-i.kr", "munhwa.com", "seoul.co.kr",
+    "segye.com", "shinailbo.co.kr", "asiatoday.co.kr", "chosun.com", "joongang.co.kr",
+    "hani.co.kr", "hankookilbo.com", "yna.co.kr", "news1.kr", "newsis.com", "kbs.co.kr",
+    "imbc.com", "sbs.co.kr", "ytn.co.kr", "jtbc.co.kr", "mbn.co.kr", "mk.co.kr", "hankyung.com", 
+    "sedaily.com", "edaily.co.kr", "asiae.co.kr", "fnnews.com", "heraldcorp.com",
+    "etnews.com", "dt.co.kr", "zdnet.co.kr", "mt.co.kr", "bizwatch.co.kr", "etoday.co.kr",
+    "ddaily.co.kr", "dailian.co.kr", "joseilbo.com", "inews24.com", "bloter.net", "fntimes.com"
+]
 
-def get_naver_news(query):
-    url = "https://openapi.naver.com/v1/search/news.json"
-    headers = {
-        "X-Naver-Client-Id": NAVER_CLIENT_ID,
-        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET
+# 1회 출연만으로 통과 가능한 핵심 키워드
+CORE_KEYWORDS = ["은행", "카카오", "토스", "뱅크", "뱅킹", "금융"]
+
+def clean_text_to_list(text):
+    text = html.unescape(text.replace('<b>', '').replace('</b>', ''))
+    text = re.sub(r'[^\w\s-]', ' ', text)
+    
+    # 유사도 분석 시 제외할 일반 단어 (사건의 본질만 남김)
+    black_list = {
+        'AI', 'IT', '디지털', '신상품', '금융', '은행', '기업', '기관', '서비스', '업무',
+        '지원', '확대', '강화', '구축', '출범', '추진', '본격', '협약', '체결', '방문', '실시',
+        '개최', '선정', '도입', '진행', '마련', '대응'
     }
-    params = {
-        "query": query,
-        "display": 100,
-        "start": 1,
-        "sort": "date"
-    }
-    response = requests.get(url, headers=headers, params=params)
-    if response.status_code == 200:
-        return response.json().get('items', [])
-    return []
+    stop_words = {'은', '는', '이', '가', '을', '를', '의', '와', '과', '에', '도', '등', '로', '으로'}
+    
+    words = text.split()
+    processed_keywords = []
+    for i, w in enumerate(words):
+        if w in stop_words or w in black_list or len(w) < 2: continue
+        weight = 1.2 if i == 0 else 1.0
+        if len(w) >= 4 or re.search(r'[a-zA-Z0-9]', w): weight *= 1.5
+        processed_keywords.append({'word': w, 'weight': weight})
+    return processed_keywords
 
+def get_hybrid_similarity(list1, list2):
+    if not list1 or not list2: return 0.0
+    match_score = 0.0
+    total_weight1 = sum(item['weight'] for item in list1)
+    total_weight2 = sum(item['weight'] for item in list2)
+    min_total_weight = min(total_weight1, total_weight2)
 
+    for item1 in list1:
+        for item2 in list2:
+            if item1['word'][:2] == item2['word'][:2]:
+                match_score += max(item1['weight'], item2['weight'])
+                break 
+    return match_score / min_total_weight if min_total_weight > 0 else 0
+
+# ==========================================
+# 3. 메인 로직 (뉴스 수집 및 필터링)
+# ==========================================
 def collect_all_news():
     queries = ["은행 +AI", "은행 +IT", "은행 +신상품", "은행 +디지털"]
-    all_items = []
-    seen_urls = set()
-
     kst = timezone(timedelta(hours=9))
     limit_time = datetime.now(kst) - timedelta(days=1)
+    
+    url_map = {}
+    url_to_queries = defaultdict(set)
 
-    allowed_domains = [
-        "khan.co.kr", "kmib.co.kr", "naeil.com", "donga.com", "m-i.kr", "munhwa.com", "seoul.co.kr",
-        "segye.com", "shinailbo.co.kr", "asiatoday.co.kr", "jeonmae.co.kr", "chosun.com", "joongang.co.kr",
-        "newscj.com", "hani.co.kr", "hankookilbo.com", "yna.co.kr", "news1.kr", "newsis.com", "kbs.co.kr",
-        "imbc.com", "sbs.co.kr", "ytn.co.kr", "jtbc.co.kr", "mbn.co.kr", "tvchosun.com", "ichannela.com",
-        "mk.co.kr", "hankyung.com", "sedaily.com", "edaily.co.kr", "asiae.co.kr", "fnnews.com", "heraldcorp.com",
-        "etnews.com", "dt.co.kr", "zdnet.co.kr", "mt.co.kr", "bizwatch.co.kr", "etoday.co.kr", "ddaily.co.kr",
-        "itdaily.kr", "datanet.co.kr", "bloter.net", "joseilbo.com", "ajunews.com", "viva100.com", "lawissue.co.kr",
-        "ebn.co.kr", "dailyimpact.kr", "digitaltoday.co.kr", "byline.network", "betanews.net", "venturesquare.net",
-        "boannews.com", "bizhankook.com", "seoulfn.com", "itworld.co.kr", "ciokorea.com", "itbiznews.com"
-    ]
-
+    print(f"--- 1단계: 날짜/매체 필터링 수집 시작 ---")
     for q in queries:
-        news_items = get_naver_news(q)
-        for item in news_items:
-            link = item.get('link', '')
-            org_link = item.get('originallink', '')
+        items = []
+        for start in range(1, 301, 100): # 300개 수집
+            res = requests.get(
+                "https://openapi.naver.com/v1/search/news.json",
+                headers={"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET},
+                params={"query": q, "display": 100, "start": start, "sort": "date"}
+            ).json().get('items', [])
+            if not res: break
+            items.extend(res)
 
-            if not link or link in seen_urls:
-                continue
+        for item in items:
+            main_url = item.get('originallink') or item.get('link')
+            naver_url = item.get('link', '')
 
+            # [필터 1] 날짜 및 매체
             try:
                 pub_date = datetime.strptime(item['pubDate'], '%a, %d %b %Y %H:%M:%S +0900').replace(tzinfo=kst)
-                is_recent = pub_date >= limit_time
-            except:
-                is_recent = False
+                if pub_date < limit_time: continue
+            except: continue
 
-            if not is_recent:
-                continue
+            is_allowed = any(dom in main_url for dom in ALLOWED_DOMAINS) or ("n.news.naver.com" in naver_url)
+            if not is_allowed: continue
 
-            is_allowed_url = any(domain in org_link for domain in allowed_domains) or \
-                             any(domain in link for domain in allowed_domains) or \
-                             ("n.news.naver.com" in link)
+            if main_url not in url_map:
+                url_map[main_url] = item
+            url_to_queries[main_url].add(q)
+    
+    print(f"[DEBUG] 1차 필터링(날짜/매체) 후 기사 수: {len(url_map)}건")
 
-            if is_allowed_url:
-                all_items.append(item)
-                seen_urls.add(link)
+    # [필터 2] 교집합(2회 이상) OR 핵심 키워드 포함 기사 선별
+    candidate_items = []
+    for url, q_set in url_to_queries.items():
+        item = url_map[url]
+        clean_title = html.unescape(item['title'].replace('<b>', '').replace('</b>', ''))
+        
+        is_intersected = len(q_set) >= 2
+        has_core_word = any(word in clean_title for word in CORE_KEYWORDS)
 
-    return all_items
+        if is_intersected or has_core_word:
+            item['match_count'] = len(q_set)
+            candidate_items.append(item)
+    
+    print(f"[DEBUG] 2차 필터링(교집합/핵심어) 후 기사 수: {len(candidate_items)}건")
 
+    # [필터 3] 제목 유사도 분석 (요약문 긴 것 선택)
+    unique_news = []
+    threshold = 0.45
+    
+    candidate_items.sort(key=lambda x: x['match_count'], reverse=True)
+
+    for current in candidate_items:
+        current_keywords = clean_text_to_list(current['title'])
+        is_duplicate = False
+        
+        for i, existing in enumerate(unique_news):
+            existing_keywords = clean_text_to_list(existing['title'])
+            similarity = get_hybrid_similarity(current_keywords, existing_keywords)
+            
+            if similarity >= threshold:
+                is_duplicate = True
+                if len(current.get('description', '')) > len(existing.get('description', '')):
+                    unique_news[i] = current
+                break
+        
+        if not is_duplicate:
+            unique_news.append(current)
+
+    return unique_news
 
 def get_gemini_insight(news_list):
     if not news_list:
@@ -134,7 +202,7 @@ def get_gemini_insight(news_list):
     return result
 
 
-def send_insight_mail(insight_html, news_list):
+def send_insight_mail(insight_html):
     full_html = f"""
     <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
         <div style="padding: 20px;">
@@ -160,7 +228,7 @@ def send_insight_mail(insight_html, news_list):
         response = requests.post(MAIL_API_URL, json=payload)
 
         if response.status_code in [200, 201]:
-            print(f"메일 발송 성공! (분석 대상 뉴스: {len(news_list)}건)")
+            print(f"메일 발송 성공!")
         else:
             print(f"실패: 코드 {response.status_code}")
             print(f"[DEBUG] 응답 내용: {response.text}")
@@ -171,10 +239,10 @@ def send_insight_mail(insight_html, news_list):
 
 if __name__ == "__main__":
     news_items = collect_all_news()
-    print(f"[DEBUG] 뉴스 개수: {len(news_items)}")
+    print(f"[DEBUG] 최종 필터링 후 뉴스 개수: {len(news_items)}건")
 
     insights = get_gemini_insight(news_items)
 
     insights = insights.replace('```html', '').replace('```', '').strip()
 
-    send_insight_mail(insights, news_items)
+    send_insight_mail(insights)
