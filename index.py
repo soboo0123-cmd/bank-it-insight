@@ -180,7 +180,7 @@ def get_gemini_insight(news_list):
     2. <카테고리별 주요 기사 분류>:
        - 아래 4가지 카테고리로 기사를 분류하여 배치하세요:
          ① 경영전략 ② 신상품 ③ IT(기술/보안) ④ 기타
-       - **[레이아웃 변경]** 카테고리 제목(<h3>) 바로 옆에 해당 분야의 [핵심 트렌드]를 한 줄로 나란히 배치하세요. 
+       - **[레이아웃 변경]** 카테고리 제목(<h3>) 바로 옆에 해당 분야의 [핵심 트렌드]를 한 줄로 나란히 배치하세요. '<div style='background:#f8f9fa;'>'
        - 기사가 없는 카테고리는 "해당 분야 주요 기사 없음"이라고 표시하세요.
        - 카테고리별로 각 기사를 관통하는 핵심 트렌드를 한 줄로 요약하여 제시하세요.
        - **[중요]** 각 기사의 [기사내용desc]는 **데이터로 제공된 원문을 임의로 요약하거나 수정하지 말고 텍스트 그대로(As-is) 전체를 표시**하세요. 네이버에서 전달받은 <br> 태그 등 HTML 서식도 그대로 유지해야 합니다.
@@ -190,7 +190,7 @@ def get_gemini_insight(news_list):
     """
 
     response = client.models.generate_content(
-        model='gemini-3.1-pro-preview',
+        model='gemini-2.5-flash',
         contents=prompt
     )
 
