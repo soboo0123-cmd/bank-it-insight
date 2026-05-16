@@ -233,7 +233,7 @@ def get_gemini_insight(news_list):
 
     response = call_gemini_with_retry(
         client,
-        model_name='GEMINI_MODEL',
+        model_name= GEMINI_MODEL,
         contents=prompt
     )
 
