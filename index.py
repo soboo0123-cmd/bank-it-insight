@@ -1,6 +1,8 @@
 import os
 import requests
 import json
+import time
+import sys
 from datetime import datetime, timezone, timedelta
 import html
 import re
@@ -16,6 +18,38 @@ RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
 # Gemini 설정
 client = genai.Client(api_key=GEMINI_API_KEY)
+
+def call_gemini_with_retry(client, model_name, contents, max_retries=3):
+    """Gemini API 호출 시 429, 503 및 기타 오류를 처리하고 재시도하는 래퍼 함수"""
+    for attempt in range(max_retries + 1):
+        try:
+            return client.models.generate_content(model=model_name, contents=contents)
+        except Exception as e:
+            error_str = str(e).lower()
+            if "quota" in error_str or "limit exceeded" in error_str:
+                print(f"\n[종료] 일일 할당량(Quota) 초과 오류 발생: {e}")
+                print("오늘의 작업을 중단하고 스크립트를 정상 종료합니다.")
+                sys.exit(0) # GitHub Action이 에러로 판단하지 않게 정상 종료 처리
+            elif "429" in error_str or "rate limit" in error_str or "resource exhausted" in error_str:
+                if attempt < max_retries:
+                    print(f"\n[대기] Rate Limit (429) 오류. 60초 대기 후 재시도 ({attempt+1}/{max_retries})")
+                    time.sleep(60)
+                else:
+                    print(f"\n[실패] Rate Limit 최대 재시도 횟수 초과.")
+                    raise e
+            elif "500" in error_str or "503" in error_str:
+                if attempt < max_retries:
+                    print(f"\n[대기] 서버 오류 (50x). 30초 대기 후 재시도 ({attempt+1}/{max_retries})")
+                    time.sleep(30)
+                else:
+                    raise e
+            else:
+                if attempt < max_retries:
+                    print(f"\n[대기] 알 수 없는 오류 발생. 10초 대기 후 재시도 ({attempt+1}/{max_retries}): {e}")
+                    time.sleep(10)
+                else:
+                    print(f"\n[실패] 치명적 오류로 재시도 포기: {e}")
+                    raise e
 
 # ==========================================
 # 2. article.py 로직 이식 (상수 및 유틸리티 함수)
@@ -198,68 +232,6 @@ def get_gemini_insight(news_list):
     response = call_gemini_with_retry(
         client,
         model_name='gemini-2.5-flash',
-        contents=prompt
-    )
-
-    result = response.text
-
-    # 🔍 DEBUG: Gemini 응답 길이
-    print(f"[DEBUG] Gemini 응답 길이: {len(result)}")
-
-    return result
-
-
-def send_insight_mail(insight_html):
-    full_html = f"""
-    <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
-        <div style="padding: 20px;">
-            {insight_html}
-        </div>
-    </div>
-    """
-
-    # 🔍 DEBUG: HTML 길이
-    print(f"[DEBUG] HTML 길이: {len(full_html)}")
-
-    payload = {
-        "to": [email.strip() for email in RECIPIENT_EMAIL.split(",")],
-        "subject": f"[{datetime.now(timezone(timedelta(hours=9))).date()}] 은행 IT & 신상품 데일리 인사이트",
-        "html": full_html
-    }
-
-    # 🔍 DEBUG: Payload 크기
-    payload_size = len(json.dumps(payload))
-    print(f"[DEBUG] Payload JSON 크기: {payload_size}")
-
-    try:
-        response = requests.post(MAIL_API_URL, json=payload)
-
-        if response.status_code in [200, 201]:
-            print(f"메일 발송 성공!")
-        else:
-            print(f"실패: 코드 {response.status_code}")
-            print(f"[DEBUG] 응답 내용: {response.text}")
-
-    except Exception as e:
-        print(f"오류 발생: {e}")
-
-
-if __name__ == "__main__":
-    news_items = collect_all_news()
-    print(f"[DEBUG] 최종 필터링 후 뉴스 개수: {len(news_items)}건")
-
-    insights = get_gemini_insight(news_items)
-
-    insights = insights.replace('```html', '').replace('```', '').strip()
-
-    send_insight_mail(insights)
-없는 카테고리는 "해당 분야 주요 기사 없음"이라고 표시하세요.
-        
-        3. 전문적인 어조를 유지하고, <h3> 태그로 섹션을 명확히 구분하여 가독성을 극대화하세요.
-        """
-
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
         contents=prompt
     )
 
