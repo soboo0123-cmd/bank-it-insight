@@ -195,6 +195,69 @@ def get_gemini_insight(news_list):
         3. 전문적인 어조를 유지하고, <h3> 태그로 섹션을 명확히 구분하여 가독성을 극대화하세요.
         """
 
+    response = call_gemini_with_retry(
+        client,
+        model_name='gemini-2.5-flash',
+        contents=prompt
+    )
+
+    result = response.text
+
+    # 🔍 DEBUG: Gemini 응답 길이
+    print(f"[DEBUG] Gemini 응답 길이: {len(result)}")
+
+    return result
+
+
+def send_insight_mail(insight_html):
+    full_html = f"""
+    <div style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6;">
+        <div style="padding: 20px;">
+            {insight_html}
+        </div>
+    </div>
+    """
+
+    # 🔍 DEBUG: HTML 길이
+    print(f"[DEBUG] HTML 길이: {len(full_html)}")
+
+    payload = {
+        "to": [email.strip() for email in RECIPIENT_EMAIL.split(",")],
+        "subject": f"[{datetime.now(timezone(timedelta(hours=9))).date()}] 은행 IT & 신상품 데일리 인사이트",
+        "html": full_html
+    }
+
+    # 🔍 DEBUG: Payload 크기
+    payload_size = len(json.dumps(payload))
+    print(f"[DEBUG] Payload JSON 크기: {payload_size}")
+
+    try:
+        response = requests.post(MAIL_API_URL, json=payload)
+
+        if response.status_code in [200, 201]:
+            print(f"메일 발송 성공!")
+        else:
+            print(f"실패: 코드 {response.status_code}")
+            print(f"[DEBUG] 응답 내용: {response.text}")
+
+    except Exception as e:
+        print(f"오류 발생: {e}")
+
+
+if __name__ == "__main__":
+    news_items = collect_all_news()
+    print(f"[DEBUG] 최종 필터링 후 뉴스 개수: {len(news_items)}건")
+
+    insights = get_gemini_insight(news_items)
+
+    insights = insights.replace('```html', '').replace('```', '').strip()
+
+    send_insight_mail(insights)
+없는 카테고리는 "해당 분야 주요 기사 없음"이라고 표시하세요.
+        
+        3. 전문적인 어조를 유지하고, <h3> 태그로 섹션을 명확히 구분하여 가독성을 극대화하세요.
+        """
+
     response = client.models.generate_content(
         model='gemini-2.5-flash',
         contents=prompt
