@@ -16,6 +16,8 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 MAIL_API_URL = os.environ.get('MAIL_API_URL')
 RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
+GEMINI_MODEL = "gemini-3-flash-preview"
+
 # Gemini 설정
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -231,7 +233,7 @@ def get_gemini_insight(news_list):
 
     response = call_gemini_with_retry(
         client,
-        model_name='gemini-2.5-flash',
+        model_name='GEMINI_MODEL',
         contents=prompt
     )
 
