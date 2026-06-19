@@ -1,0 +1,42 @@
+name: Financial IT Insight Alimi
+
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    
+    # 여기에 환경 변수를 추가하여 모든 스텝에 적용
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true # GitHub Actions 캐시를 자동으로 연결합니다.
+
+    - name: Install dependencies
+      run: |
+        # --system 플래그를 사용하면 venv 없이 러너 환경에 바로 설치합니다.
+        uv pip install --system -r requirements.txt
+
+    - name: Run index.py
+      env:
+        NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+        NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        MAIL_API_URL: ${{ secrets.MAIL_API_URL }}
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+      run: python index.py
